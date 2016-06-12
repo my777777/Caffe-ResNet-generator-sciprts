@@ -7,7 +7,6 @@ Created on Thu Mar 31 13:45:54 2016
 
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
-N = 2
 def parse_args():
     """Parse input arguments
     """
@@ -21,7 +20,7 @@ def parse_args():
                         help='Output train_val.prototxt file')
     parser.add_argument('--layer_number', nargs='*',
                         help=('Layer number for each layer stage.'),
-                        default=[N, N, N, 0])
+                        default=['5,5,5,0'])
     parser.add_argument('-t', '--type', type=int,
                         help=('0 for deploy.prototxt, 1 for train_val.prototxt.'),
                         default=1)
@@ -29,8 +28,8 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def generate_data_layer():
-    data_layer_str = '''name: "PlainNet"
+def generate_data_layer(n):
+    data_layer_str = '''name: "CNN-%d"
 layer {
   name: "data"
   type: "Data"
@@ -68,7 +67,7 @@ layer {
     batch_size: 128
     backend: LMDB
   }
-}\n'''
+}\n''' % (6 * n + 2)
     return data_layer_str
 
 def generate_conv1_layer(kernel_size, kernel_num, stride, pad, layer_name, bottom, top, filler="msra"):
@@ -303,7 +302,9 @@ def generate_state_layer_names(stage, seq):
 
 def generate_train_val():
     args = parse_args()
-    network_str = generate_data_layer()
+    stage_n = args.layer_number[0]
+    stage_n = [int(n) for n in stage_n.split(',')]
+    network_str = generate_data_layer(stage_n[0])
     '''before stage'''
     last_top = 'data'
     network_str += generate_conv1_layer(3, 16, 1, 1, 'conv1', last_top, 'conv1', 'msra')
@@ -317,7 +318,7 @@ def generate_train_val():
     
     last_output = 'conv1'
 
-    for l in xrange(1, args.layer_number[0] + 1):
+    for l in xrange(1, stage_n[0] + 1):
         branch2_layer_names = generate_state_layer_names(stage, l)
         print(branch2_layer_names)        
         
@@ -342,7 +343,7 @@ def generate_train_val():
     last_output = last_top
     
     # branch2
-    for l in xrange(1, args.layer_number[1]+1):
+    for l in xrange(1, stage_n[1]+1):
         branch2_layer_names = generate_state_layer_names(stage, l)         
         
         if l == 1:
@@ -370,7 +371,7 @@ def generate_train_val():
     
     last_output = last_top
     # branch2
-    for l in xrange(1, args.layer_number[2]+1):
+    for l in xrange(1, stage_n[2]+1):
         branch2_layer_names = generate_state_layer_names(stage, l)
         if l == 1:
             stride = 2
